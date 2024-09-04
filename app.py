@@ -24,6 +24,12 @@ def convert_pdf_to_markdown(file, api_key, langs=None, force_ocr=False, paginate
 # Streamlit UI
 st.title("PDF to Markdown Converter")
 
+# Initialize session state
+if 'conversion_successful' not in st.session_state:
+    st.session_state.conversion_successful = False
+if 'converted_data' not in st.session_state:
+    st.session_state.converted_data = None
+
 # Form
 with st.form("converter_form"):
     # API Key input
@@ -59,33 +65,39 @@ with st.form("converter_form"):
                     if data["status"] == "complete":
                         break
 
-                # Display results
+                # Store results in session state
                 if data["success"]:
+                    st.session_state.conversion_successful = True
+                    st.session_state.converted_data = data
                     st.success("Conversion successful!")
-
-                    # Create zip file
-                    zip_buffer = io.BytesIO()
-                    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-                        # Add Markdown file
-                        zip_file.writestr(uploaded_file.name.replace(".pdf", ".md"), data["markdown"])
-
-                        # Add images
-                        if data["images"]:
-                            for filename, image_data in data["images"].items():
-                                image = base64.b64decode(image_data)
-                                zip_file.writestr(filename, image)
-
-                    # Download button for zip file
-                    st.download_button(
-                        label="Download Zip",
-                        data=zip_buffer.getvalue(),
-                        file_name=uploaded_file.name.replace(".pdf", ".zip"),
-                        mime="application/zip"
-                    )
-
                 else:
                     st.error(f"Conversion failed: {data.get('error', 'Unknown error')}")
             else:
                 st.error("Conversion failed: Invalid response from API.")
     elif submitted:
         st.warning("Please upload a PDF file and enter your API Key.")
+
+# Download button (outside the form)
+if st.session_state.conversion_successful:
+    data = st.session_state.converted_data
+    uploaded_file = st.session_state.uploaded_file
+
+    # Create zip file
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+        # Add Markdown file
+        zip_file.writestr(uploaded_file.name.replace(".pdf", ".md"), data["markdown"])
+
+        # Add images
+        if data["images"]:
+            for filename, image_data in data["images"].items():
+                image = base64.b64decode(image_data)
+                zip_file.writestr(filename, image)
+
+    # Download button for zip file
+    st.download_button(
+        label="Download Zip",
+        data=zip_buffer.getvalue(),
+        file_name=uploaded_file.name.replace(".pdf", ".zip"),
+        mime="application/zip"
+    )
