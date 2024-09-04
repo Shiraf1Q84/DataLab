@@ -42,48 +42,51 @@ if st.button("Convert"):
 
             # Poll for results
             max_polls = 300
-            check_url = data["request_check_url"]
+            check_url = data.get("request_check_url")
 
-            for i in range(max_polls):
-                time.sleep(2)
-                response = requests.get(check_url, headers={"X-Api-Key": api_key})
-                data = response.json()
+            if check_url:
+                for i in range(max_polls):
+                    time.sleep(2)
+                    response = requests.get(check_url, headers={"X-Api-Key": api_key})
+                    data = response.json()
 
-                if data["status"] == "complete":
-                    break
+                    if data["status"] == "complete":
+                        break
 
-            # Display results
-            if data["success"]:
-                st.success("Conversion successful!")
+                # Display results
+                if data["success"]:
+                    st.success("Conversion successful!")
 
-                # Display Markdown
-                st.markdown(data["markdown"])
+                    # Display Markdown
+                    st.markdown(data["markdown"])
 
-                # Download Markdown button
-                st.download_button(
-                    label="Download Markdown",
-                    data=data["markdown"],
-                    file_name=uploaded_file.name.replace(".pdf", ".md")
-                )
+                    # Download Markdown button
+                    st.download_button(
+                        label="Download Markdown",
+                        data=data["markdown"],
+                        file_name=uploaded_file.name.replace(".pdf", ".md")
+                    )
 
-                # Display and download images if available
-                if data["images"]:
-                    st.subheader("Images")
-                    for filename, image_data in data["images"].items():
-                        # Decode base64 image data
-                        image = base64.b64decode(image_data)
+                    # Display and download images if available
+                    if data["images"]:
+                        st.subheader("Images")
+                        for filename, image_data in data["images"].items():
+                            # Decode base64 image data
+                            image = base64.b64decode(image_data)
 
-                        # Display image
-                        st.image(image, caption=filename)
+                            # Display image
+                            st.image(image, caption=filename)
 
-                        # Download image button
-                        st.download_button(
-                            label=f"Download {filename}",
-                            data=image,
-                            file_name=filename
-                        )
+                            # Download image button
+                            st.download_button(
+                                label=f"Download {filename}",
+                                data=image,
+                                file_name=filename
+                            )
 
+                else:
+                    st.error(f"Conversion failed: {data.get('error', 'Unknown error')}")
             else:
-                st.error(f"Conversion failed: {data['error']}")
+                st.error("Conversion failed: Invalid response from API.")
     else:
         st.warning("Please upload a PDF file and enter your API Key.")
