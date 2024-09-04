@@ -29,6 +29,8 @@ if 'conversion_successful' not in st.session_state:
     st.session_state.conversion_successful = False
 if 'converted_data' not in st.session_state:
     st.session_state.converted_data = None
+if 'uploaded_file' not in st.session_state:
+    st.session_state.uploaded_file = None
 
 # Form
 with st.form("converter_form"):
@@ -69,6 +71,7 @@ with st.form("converter_form"):
                 if data["success"]:
                     st.session_state.conversion_successful = True
                     st.session_state.converted_data = data
+                    st.session_state.uploaded_file = uploaded_file # Add this line
                     st.success("Conversion successful!")
                 else:
                     st.error(f"Conversion failed: {data.get('error', 'Unknown error')}")
