@@ -3,25 +3,27 @@ import requests
 import time
 import base64
 
-# Datalab API endpoint and your API key
+# Datalab API endpoint
 DATALAB_API_URL = "https://www.datalab.to/api/v1/marker"
-API_KEY = st.secrets["DATALAB_API_KEY"] 
 
 # Function to convert PDF to Markdown using Datalab API
-def convert_pdf_to_markdown(file, langs=None, force_ocr=False, paginate=False):
+def convert_pdf_to_markdown(file, api_key, langs=None, force_ocr=False, paginate=False):
     form_data = {
         'file': ('uploaded_file.pdf', file, 'application/pdf'),
         'langs': (None, langs),
         "force_ocr": (None, force_ocr),
         "paginate": (None, paginate)
     }
-    headers = {"X-Api-Key": API_KEY}
+    headers = {"X-Api-Key": api_key}
     response = requests.post(DATALAB_API_URL, files=form_data, headers=headers)
     data = response.json()
     return data
 
 # Streamlit UI
 st.title("PDF to Markdown Converter")
+
+# API Key input
+api_key = st.text_input("Enter your Datalab API Key", type="password")
 
 # File uploader
 uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
@@ -33,10 +35,10 @@ paginate = st.checkbox("Paginate Output")
 
 # Convert button
 if st.button("Convert"):
-    if uploaded_file is not None:
+    if uploaded_file is not None and api_key:
         with st.spinner("Converting..."):
             # Convert the PDF
-            data = convert_pdf_to_markdown(uploaded_file, langs, force_ocr, paginate)
+            data = convert_pdf_to_markdown(uploaded_file, api_key, langs, force_ocr, paginate)
 
             # Poll for results
             max_polls = 300
@@ -44,7 +46,7 @@ if st.button("Convert"):
 
             for i in range(max_polls):
                 time.sleep(2)
-                response = requests.get(check_url, headers={"X-Api-Key": API_KEY})
+                response = requests.get(check_url, headers={"X-Api-Key": api_key})
                 data = response.json()
 
                 if data["status"] == "complete":
@@ -84,4 +86,4 @@ if st.button("Convert"):
             else:
                 st.error(f"Conversion failed: {data['error']}")
     else:
-        st.warning("Please upload a PDF file.")
+        st.warning("Please upload a PDF file and enter your API Key.")
