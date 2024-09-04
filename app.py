@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import time
 import base64
+import zipfile
+import io
 
 # Datalab API endpoint
 DATALAB_API_URL = "https://www.datalab.to/api/v1/marker"
@@ -22,20 +24,24 @@ def convert_pdf_to_markdown(file, api_key, langs=None, force_ocr=False, paginate
 # Streamlit UI
 st.title("PDF to Markdown Converter")
 
-# API Key input
-api_key = st.text_input("Enter your Datalab API Key", type="password")
+# Form
+with st.form("converter_form"):
+    # API Key input
+    api_key = st.text_input("Enter your Datalab API Key", type="password")
 
-# File uploader
-uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+    # File uploader
+    uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
 
-# Options
-langs = st.text_input("Languages (comma-separated, optional)", "")
-force_ocr = st.checkbox("Force OCR")
-paginate = st.checkbox("Paginate Output")
+    # Options
+    langs = st.text_input("Languages (comma-separated, optional)", "")
+    force_ocr = st.checkbox("Force OCR")
+    paginate = st.checkbox("Paginate Output")
 
-# Convert button
-if st.button("Convert"):
-    if uploaded_file is not None and api_key:
+    # Convert button
+    submitted = st.form_submit_button("Convert")
+
+    # Conversion process
+    if submitted and uploaded_file is not None and api_key:
         with st.spinner("Converting..."):
             # Convert the PDF
             data = convert_pdf_to_markdown(uploaded_file, api_key, langs, force_ocr, paginate)
@@ -53,40 +59,33 @@ if st.button("Convert"):
                     if data["status"] == "complete":
                         break
 
-                # Display results
+                # Process results
                 if data["success"]:
-                    st.success("Conversion successful!")
+                    st.success("Conversion successful! Downloading zip file...")
 
-                    # Display Markdown
-                    st.markdown(data["markdown"])
+                    # Create zip file
+                    zip_buffer = io.BytesIO()
+                    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+                        # Add Markdown file
+                        zip_file.writestr(uploaded_file.name.replace(".pdf", ".md"), data["markdown"])
 
-                    # Download Markdown button
+                        # Add images
+                        if data["images"]:
+                            for filename, image_data in data["images"].items():
+                                image = base64.b64decode(image_data)
+                                zip_file.writestr(filename, image)
+
+                    # Download button for zip file
                     st.download_button(
-                        label="Download Markdown",
-                        data=data["markdown"],
-                        file_name=uploaded_file.name.replace(".pdf", ".md")
+                        label="Download Zip",
+                        data=zip_buffer.getvalue(),
+                        file_name=uploaded_file.name.replace(".pdf", ".zip"),
+                        mime="application/zip"
                     )
-
-                    # Display and download images if available
-                    if data["images"]:
-                        st.subheader("Images")
-                        for filename, image_data in data["images"].items():
-                            # Decode base64 image data
-                            image = base64.b64decode(image_data)
-
-                            # Display image
-                            st.image(image, caption=filename)
-
-                            # Download image button
-                            st.download_button(
-                                label=f"Download {filename}",
-                                data=image,
-                                file_name=filename
-                            )
 
                 else:
                     st.error(f"Conversion failed: {data.get('error', 'Unknown error')}")
             else:
                 st.error("Conversion failed: Invalid response from API.")
-    else:
+    elif submitted:
         st.warning("Please upload a PDF file and enter your API Key.")
