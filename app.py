@@ -57,35 +57,39 @@ with st.form("converter_form"):
                     data = response.json()
 
                     if data["status"] == "complete":
+                        # Store results in session state
+                        st.session_state.conversion_results = data
                         break
 
-                # Process results
-                if data["success"]:
-                    st.success("Conversion successful! Downloading zip file...")
-
-                    # Create zip file
-                    zip_buffer = io.BytesIO()
-                    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-                        # Add Markdown file
-                        zip_file.writestr(uploaded_file.name.replace(".pdf", ".md"), data["markdown"])
-
-                        # Add images
-                        if data["images"]:
-                            for filename, image_data in data["images"].items():
-                                image = base64.b64decode(image_data)
-                                zip_file.writestr(filename, image)
-
-                    # Download button for zip file
-                    st.download_button(
-                        label="Download Zip",
-                        data=zip_buffer.getvalue(),
-                        file_name=uploaded_file.name.replace(".pdf", ".zip"),
-                        mime="application/zip"
-                    )
-
+                # Check if conversion was successful
+                if st.session_state.get("conversion_results") and st.session_state.conversion_results["success"]:
+                    st.success("Conversion successful!")
                 else:
                     st.error(f"Conversion failed: {data.get('error', 'Unknown error')}")
             else:
                 st.error("Conversion failed: Invalid response from API.")
     elif submitted:
         st.warning("Please upload a PDF file and enter your API Key.")
+
+# Download button (outside the form)
+download_button_disabled = not (st.session_state.get("conversion_results") and st.session_state.conversion_results["success"])
+st.download_button(
+    label="Download Zip",
+    data=None if download_button_disabled else create_zip_file(st.session_state.conversion_results, uploaded_file),
+    file_name=uploaded_file.name.replace(".pdf", ".zip") if uploaded_file else "output.zip",
+    mime="application/zip",
+    disabled=download_button_disabled
+)
+
+def create_zip_file(data, uploaded_file):
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+        # Add Markdown file
+        zip_file.writestr(uploaded_file.name.replace(".pdf", ".md"), data["markdown"])
+
+        # Add images
+        if data["images"]:
+            for filename, image_data in data["images"].items():
+                image = base64.b64decode(image_data)
+                zip_file.writestr(filename, image)
+    return zip_buffer.getvalue()
